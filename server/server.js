@@ -2,25 +2,36 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Render 배포 시 HTML, JS 정적 파일 제공 설정
-app.use(express.static(path.join(__dirname, '../client')));
+// static 파일 제공
+app.use(express.static(__dirname));
 
-// 1. 프리패스 로그인 API (아이디 1, 2만 허용)
+// 메인 및 로그인 페이지
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'login.html'));
+});
+
+app.get('/login.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'login.html'));
+});
+
+// 로그인 처리 API (아이디 1, 2 지원)
 app.post('/api/auth/login', (req, res) => {
   const { id, password } = req.body;
   
-  if ((id === "1" && password === "1") || (id === "2" && password === "2")) {
+  const reqId = String(id).trim();
+  const reqPw = String(password).trim();
+
+  if ((reqId === "1" && reqPw === "1") || (reqId === "2" && reqPw === "2")) {
     return res.status(200).json({ 
       success: true, 
-      user: { id: id, name: `테스터${id}` } 
+      user: { id: reqId, name: `테스터${reqId}` } 
     });
   } else {
     return res.status(401).json({ 
@@ -30,7 +41,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
-// 2. 실시간 채팅 소켓 엔진
+// 소켓 통신
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] }
 });
@@ -48,7 +59,7 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
