@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인</title>
+  <style>
+    body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f2f5; margin: 0; }
+    .login-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; text-align: center; }
+    input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+    button:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h2>채팅방 로그인</h2>
+    <input type="text" id="userId" placeholder="아이디 (1 또는 2)">
+    <input type="password" id="userPw" placeholder="비밀번호 (1 또는 2)">
+    <button onclick="login()">로그인</button>
+  </div>
+
+  <script>
+    async function login() {
+      // 버튼을 누르는 순간의 값을 정확하게 가져오도록 함수 내부에 배치 완료!
+      const id = document.getElementById('userId').value;
+      const password = document.getElementById('userPw').value;
+
+      try {
+        const res = await fetch('https://chat-app-qylu.onrender.com/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, password })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          sessionStorage.setItem('username', data.user.name);
+          window.location.href = 'chat.html';
+        } else {
+          alert(data.message);
+        }
+      } catch (error) {
+        console.error(error);
+        alert('로그인 통신 중 오류가 발생했습니다.');
+      }
+    }
+  </script>
+</body>
+</html>
