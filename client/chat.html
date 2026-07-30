@@ -2,72 +2,175 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>실시간 채팅방</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>카카오톡 채팅방</title>
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 0; background: #e9ecef; display: flex; flex-direction: column; height: 100vh; }
-    header { background: #343a40; color: white; padding: 15px; text-align: center; font-size: 18px; font-weight: bold; }
-    #chatBox { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-    .msg { background: white; padding: 10px; border-radius: 8px; max-width: 70%; width: fit-content; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-    .msg.me { background: #d2e3fc; align-self: flex-end; }
-    .msg .sender { font-size: 12px; color: #666; margin-bottom: 3px; font-weight: bold; }
-    .msg .time { font-size: 10px; color: #999; text-align: right; margin-top: 3px; }
-    .input-area { display: flex; padding: 10px; background: white; border-top: 1px solid #ddd; }
-    #msgInput { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
-    #sendBtn { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; margin-left: 10px; cursor: pointer; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #abc1d1;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      background-color: #a0b9ce;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #92a8ba;
+    }
+    .header h2 { font-size: 18px; color: #333; }
+    .header button {
+      padding: 6px 12px;
+      background: #eee;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .chat-box {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .message-row {
+      display: flex;
+      flex-direction: column;
+      max-width: 70%;
+    }
+    .message-row.my-msg {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+    .message-row.other-msg {
+      align-self: flex-start;
+      align-items: flex-start;
+    }
+    .sender-name {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 4px;
+    }
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 15px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .my-msg .bubble {
+      background-color: #fee500;
+      color: #000;
+      border-top-right-radius: 2px;
+    }
+    .other-msg .bubble {
+      background-color: #ffffff;
+      color: #000;
+      border-top-left-radius: 2px;
+    }
+    .time {
+      font-size: 10px;
+      color: #777;
+      margin-top: 3px;
+    }
+    .input-area {
+      background-color: #ffffff;
+      padding: 10px 15px;
+      display: flex;
+      gap: 10px;
+    }
+    .input-area input {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      outline: none;
+      font-size: 15px;
+    }
+    .input-area button {
+      padding: 10px 18px;
+      background-color: #fee500;
+      border: none;
+      border-radius: 20px;
+      font-weight: bold;
+      cursor: pointer;
+    }
   </style>
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
-  <header id="roomTitle">채팅방</header>
-  <div id="chatBox"></div>
-  <div class="input-area">
-    <input type="text" id="msgInput" placeholder="메시지를 입력하세요..." onkeypress="if(event.keyCode==13) send()">
-    <button id="sendBtn" onclick="send()">전송</button>
+  <div class="header">
+    <h2 id="roomTitle">채팅방</h2>
+    <button onclick="logout()">로그아웃</button>
   </div>
 
+  <div class="chat-box" id="chatBox"></div>
+
+  <form class="input-area" id="messageForm">
+    <input type="text" id="msgInput" placeholder="메시지를 입력하세요..." autocomplete="off" required>
+    <button type="submit">전송</button>
+  </form>
+
+  <script src="/socket.io/socket.io.js"></script>
   <script>
-    const username = sessionStorage.getItem('username');
-    if (!username) {
+    // 1. 로그인 유저 정보 확인
+    const userJson = localStorage.getItem('user');
+    if (!userJson) {
       alert('로그인이 필요합니다!');
-      window.location.href = 'login.html';
+      window.location.href = '/login.html';
     }
 
-    document.getElementById('roomTitle').innerText = `${username}님의 채팅방`;
+    const user = JSON.parse(userJson || '{}');
+    const username = user.name || '알 수 없는 사용자';
 
-    const socket = io('https://chat-app-qylu.onrender.com');
+    document.getElementById('roomTitle').innerText = `${username} 님의 채팅방`;
+
+    // 2. Socket.io 연결
+    const socket = io();
 
     socket.emit('join', username);
 
+    // 3. 메시지 수신 처리
     socket.on('message', (data) => {
       const chatBox = document.getElementById('chatBox');
-      const msgDiv = document.createElement('div');
-      
-      msgDiv.classList.add('msg');
-      if (data.sender === username) {
-        msgDiv.classList.add('me');
-      }
+      const isMine = data.sender === username;
 
-      msgDiv.innerHTML = `
-        <div class="sender">${data.sender}</div>
-        <div>${data.text}</div>
-        <div class="time">${data.timestamp}</div>
+      const row = document.createElement('div');
+      row.className = `message-row ${isMine ? 'my-msg' : 'other-msg'}`;
+
+      row.innerHTML = `
+        ${!isMine ? `<div class="sender-name">${data.sender}</div>` : ''}
+        <div class="bubble">${data.text}</div>
+        <div class="time">${data.timestamp || ''}</div>
       `;
-      
-      chatBox.appendChild(msgDiv);
+
+      chatBox.appendChild(row);
       chatBox.scrollTop = chatBox.scrollHeight;
     });
 
-    function send() {
+    // 4. 메시지 전송 처리
+    document.getElementById('messageForm').addEventListener('submit', (e) => {
+      e.preventDefault();
       const input = document.getElementById('msgInput');
-      if (!input.value.trim()) return;
+      const text = input.value.trim();
 
-      socket.emit('sendMessage', {
-        sender: username,
-        text: input.value
-      });
+      if (text) {
+        socket.emit('sendMessage', {
+          sender: username,
+          text: text
+        });
+        input.value = '';
+      }
+    });
 
-      input.value = '';
+    // 5. 로그아웃
+    function logout() {
+      localStorage.removeItem('user');
+      window.location.href = '/login.html';
     }
   </script>
 </body>
