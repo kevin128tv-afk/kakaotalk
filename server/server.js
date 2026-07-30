@@ -9,19 +9,25 @@ const server = http.createServer(app);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// static 파일 제공
+// 현재 폴더(server)의 정적 파일 개방
 app.use(express.static(__dirname));
 
-// 메인 및 로그인 페이지
+// 메인 접속 시 login.html 제공
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'login.html'));
 });
 
+// login.html 직접 접속 시
 app.get('/login.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'login.html'));
 });
 
-// 로그인 처리 API (아이디 1, 2 지원)
+// chat.html 직접 접속 시
+app.get('/chat.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'chat.html'));
+});
+
+// 로그인 처리 API
 app.post('/api/auth/login', (req, res) => {
   const { id, password } = req.body;
   
@@ -41,7 +47,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
-// 소켓 통신
+// 실시간 Socket.io 통신
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] }
 });
