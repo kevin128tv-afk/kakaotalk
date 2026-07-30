@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>채팅방</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #abc1d1;
+      height: 100vh;
+      height: 100dvh; 
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-header {
+      background-color: #abc1d1;
+      padding: 16px;
+      text-align: center;
+      font-weight: bold;
+      color: #333;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .message {
+      max-width: 75%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 15px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .message.my { align-self: flex-end; background-color: #fee500; color: #000; }
+    .message.other { align-self: flex-start; background-color: #ffffff; color: #333; }
+    .message .sender { font-size: 12px; color: #666; margin-bottom: 4px; }
+    .chat-input-container {
+      background-color: #ffffff;
+      padding: 12px;
+      display: flex;
+      gap: 8px;
+    }
+    .chat-input-container input {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px; /* 모바일 입력창 자동 확대 방지 */
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .chat-input-container button {
+      padding: 0 16px;
+      background-color: #fee500;
+      border: none;
+      border-radius: 20px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="chat-header" id="headerTitle">채팅방</div>
+  <div class="chat-messages" id="messages"></div>
+
+  <form class="chat-input-container" id="chatForm">
+    <input type="text" id="messageInput" placeholder="메시지를 입력하세요..." autocomplete="off" required>
+    <button type="submit">전송</button>
+  </form>
+
+  <script>
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user) {
+      window.location.href = '/login.html';
+    } else {
+      document.getElementById('headerTitle').innerText = `${user.name} 님의 채팅방`;
+    }
+
+    const socket = io();
+    const messagesDiv = document.getElementById('messages');
+    const chatForm = document.getElementById('chatForm');
+    const messageInput = document.getElementById('messageInput');
+
+    // 메시지 출력 공통 함수
+    function displayMessage(data) {
+      const msgDiv = document.createElement('div');
+      const isMy = data.sender === user.name;
+      msgDiv.classList.add('message', isMy ? 'my' : 'other');
+
+      if (!isMy) {
+        const senderDiv = document.createElement('div');
+        senderDiv.classList.add('sender');
+        senderDiv.innerText = data.sender;
+        msgDiv.appendChild(senderDiv);
+      }
+
+      const textNode = document.createTextNode(data.text);
+      msgDiv.appendChild(textNode);
+
+      messagesDiv.appendChild(msgDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // 1. 기존 DB 메시지 불러오기
+    async function loadOldMessages() {
+      try {
+        const res = await fetch('/api/messages');
+        const oldMessages = await res.json();
+        if (Array.isArray(oldMessages)) {
+          oldMessages.forEach(msg => displayMessage(msg));
+        }
+      } catch (err) {
+        console.error('이전 대화 로드 실패:', err);
+      }
+    }
+    loadOldMessages();
+
+    // 2. 소켓 연결 및 메시지 전송/수신
+    socket.emit('join', user.name);
+
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = messageInput.value.trim();
+      if (text) {
+        socket.emit('sendMessage', { sender: user.name, text });
+        messageInput.value = '';
+      }
+    });
+
+    socket.on('message', (data) => {
+      displayMessage(data);
+    });
+  </script>
+</body>
+</html>
