@@ -9,20 +9,23 @@ const server = http.createServer(app);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 현재 위치(server 폴더)의 static 파일 개방
-app.use(express.static(__dirname));
+// 상위 폴더의 client 폴더 경로 설정 (../client)
+const clientPath = path.join(__dirname, '..', 'client');
 
-// 기본 접속 및 login.html 요청 시 현재 폴더의 login.html 제공
+// client 폴더를 정적 파일 폴더로 등록
+app.use(express.static(clientPath));
+
+// 기본 접속 및 login.html 요청 시 client/login.html 제공
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'login.html'));
+  res.sendFile(path.join(clientPath, 'login.html'));
 });
 
 app.get('/login.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'login.html'));
+  res.sendFile(path.join(clientPath, 'login.html'));
 });
 
 app.get('/chat.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'chat.html'));
+  res.sendFile(path.join(clientPath, 'chat.html'));
 });
 
 // 로그인 API
@@ -44,7 +47,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
-// Socket.io 통신
+// Socket.io 실시간 통신
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] }
 });
