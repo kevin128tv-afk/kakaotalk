@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -9,30 +10,49 @@ const server = http.createServer(app);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 현재 폴더(server)의 정적 파일 개방
+// 현재 디렉토리 및 상위 디렉토리 정적 파일 개방
 app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, '..')));
 
-// 메인 접속 시 login.html 제공
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'login.html'));
-});
+// login.html 안전하게 전송하는 함수
+function sendLogin(req, res) {
+  const currentPath = path.join(__dirname, 'login.html');
+  const parentPath = path.join(__dirname, '..', 'login.html');
 
-// login.html 직접 접속 시
-app.get('/login.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'login.html'));
-});
+  if (fs.existsSync(currentPath)) {
+    return res.sendFile(currentPath);
+  } else if (fs.existsSync(parentPath)) {
+    return res.sendFile(parentPath);
+  } else {
+    return res.status(404).send('login.html 파일을 찾을 수 없습니다.');
+  }
+}
 
-// chat.html 직접 접속 시
-app.get('/chat.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'chat.html'));
-});
+// chat.html 안전하게 전송하는 함수
+function sendChat(req, res) {
+  const currentPath = path.join(__dirname, 'chat.html');
+  const parentPath = path.join(__dirname, '..', 'chat.html');
 
-// 로그인 처리 API
+  if (fs.existsSync(currentPath)) {
+    return res.sendFile(currentPath);
+  } else if (fs.existsSync(parentPath)) {
+    return res.sendFile(parentPath);
+  } else {
+    return res.status(404).send('chat.html 파일을 찾을 수 없습니다.');
+  }
+}
+
+// 라우팅 설정
+app.get('/', sendLogin);
+app.get('/login.html', sendLogin);
+app.get('/chat.html', sendChat);
+
+// 로그인 API
 app.post('/api/auth/login', (req, res) => {
   const { id, password } = req.body;
   
-  const reqId = String(id).trim();
-  const reqPw = String(password).trim();
+  const reqId = String(id || '').trim();
+  const reqPw = String(password || '').trim();
 
   if ((reqId === "1" && reqPw === "1") || (reqId === "2" && reqPw === "2")) {
     return res.status(200).json({ 
@@ -47,7 +67,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
-// 실시간 Socket.io 통신
+// Socket.io 통신
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] }
 });
