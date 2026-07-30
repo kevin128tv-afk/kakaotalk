@@ -2,22 +2,32 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
 
 app.use(express.json());
 
-// 메인 경로 및 client 폴더 정적 파일 모두 제공
+// 메인 경로 및 client 폴더 정적 파일 제공
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, 'client')));
 
-// 기본 주소 접속 시 로그인 페이지로 자동 이동
-app.get('/', (req, res) => {
-  res.redirect('/login.html');
-});
+// 로그인 페이지 경로 자동 탐색 함수
+function sendLoginPage(req, res) {
+  if (fs.existsSync(path.join(__dirname, 'login.html'))) {
+    res.sendFile(path.join(__dirname, 'login.html'));
+  } else if (fs.existsSync(path.join(__dirname, 'client', 'login.html'))) {
+    res.sendFile(path.join(__dirname, 'client', 'login.html'));
+  } else {
+    res.status(404).send('login.html 파일을 찾을 수 없습니다.');
+  }
+}
 
-// 로그인 API (아이디 1, 2)
+app.get('/', sendLoginPage);
+app.get('/login.html', sendLoginPage);
+
+// 로그인 API
 app.post('/api/auth/login', (req, res) => {
   const { id, password } = req.body;
   
@@ -52,7 +62,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Render 지정 포트(10000) 및 외부 바인딩(0.0.0.0) 설정
+// Render 지정 포트
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
