@@ -34,8 +34,8 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
+// 메모리 데이터 저장소
 let messages = [];
-// 현재 접속 중인 소켓과 유저 이력 관리
 const activeSockets = new Map(); // socket.id -> username
 
 const io = new Server(server, {
@@ -48,10 +48,7 @@ io.on('connection', (socket) => {
     socket.username = username;
     activeSockets.set(socket.id, username);
 
-    // 현재 접속된 유저들 이름 목록 (중복 제거)
-    const onlineUsers = new Set(activeSockets.values());
-
-    // 내가 들어왔으니, 상대방이 보낸 이전 메시지 중 내가 안 읽은 것을 읽음(readBy)으로 업데이트
+    // 접속 시 안 읽었던 메시지 읽음 처리
     let isUpdated = false;
     messages.forEach(msg => {
       if (msg.sender !== username && !msg.readBy.includes(username)) {
@@ -60,6 +57,7 @@ io.on('connection', (socket) => {
       }
     });
 
+    // 기존 저장된 메시지 목록 전체 보냄
     socket.emit('initMessages', messages);
 
     if (isUpdated) {
@@ -71,7 +69,6 @@ io.on('connection', (socket) => {
     const sender = messageData.sender;
     const onlineUsers = new Set(activeSockets.values());
 
-    // 메시지를 보낸 순간 실시간으로 접속해 있는 사람들을 readBy에 추가
     const readBy = [sender];
     onlineUsers.forEach(user => {
       if (user !== sender && !readBy.includes(user)) {
@@ -87,7 +84,10 @@ io.on('connection', (socket) => {
       readBy: readBy
     };
 
+    // 서버 배열에 메시지 저장
     messages.push(msgObj);
+    
+    // 전체 소켓으로 브로드캐스트
     io.emit('message', msgObj);
   });
 
