@@ -1,20 +1,43 @@
 {
-  "name": "카카오톡 채팅방",
-  "short_name": "채팅앱",
+  "id": "com.blung.chat",
+  "name": "blung - 카카오톡 스타일 채팅앱",
+  "short_name": "blung",
+  "description": "실시간 메시지 전송 및 저장 기능을 지원하는 카카오톡 스타일 웹 채팅 애플리케이션입니다.",
   "start_url": "/login.html",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#abc1d1",
   "theme_color": "#a0b9ce",
+  "lang": "ko",
   "icons": [
     {
       "src": "/icon.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "blung 메인 화면"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "blung 데스크톱 화면"
     }
   ]
 }
