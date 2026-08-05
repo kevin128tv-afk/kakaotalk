@@ -16,7 +16,6 @@ app.get('/', (req, res) => res.sendFile(path.join(clientPath, 'login.html')));
 app.get('/login.html', (req, res) => res.sendFile(path.join(clientPath, 'login.html')));
 app.get('/chat.html', (req, res) => res.sendFile(path.join(clientPath, 'chat.html')));
 
-// 로그인 API
 app.post('/api/auth/login', (req, res) => {
   const { id, password } = req.body;
   const reqId = String(id || '').trim();
@@ -35,11 +34,10 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
-// 메시지 및 접속 유저 상태 관리
 let messages = [];
-let activeUsers = new Set(); // 현재 접속 중인 유저 이름들
+// 현재 접속 중인 소켓과 유저 이력 관리
+const activeSockets = new Map(); // socket.id -> username
 
-// Socket.io 통신
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] }
 });
@@ -48,35 +46,36 @@ io.on('connection', (socket) => {
 
   socket.on('join', (username) => {
     socket.username = username;
-    activeUsers.add(username);
+    activeSockets.set(socket.id, username);
 
-    // 새 유저 접속 시, 상대방이 보낸 안 읽은 메시지들을 읽음 상태(readBy에 추가)로 변경
-    let updated = false;
+    // 현재 접속된 유저들 이름 목록 (중복 제거)
+    const onlineUsers = new Set(activeSockets.values());
+
+    // 내가 들어왔으니, 상대방이 보낸 이전 메시지 중 내가 안 읽은 것을 읽음(readBy)으로 업데이트
+    let isUpdated = false;
     messages.forEach(msg => {
       if (msg.sender !== username && !msg.readBy.includes(username)) {
         msg.readBy.push(username);
-        updated = true;
+        isUpdated = true;
       }
     });
 
-    // 전체 메시지 목록 전송
     socket.emit('initMessages', messages);
 
-    // 읽음 상태 업데이트되었으면 접속한 모두에게 알림
-    if (updated) {
+    if (isUpdated) {
       io.emit('messagesReadStatusUpdated', messages);
     }
   });
 
-  // 메시지 전송
   socket.on('sendMessage', (messageData) => {
     const sender = messageData.sender;
-    const readBy = [sender]; // 보낸 사람은 기본으로 읽음 처리
+    const onlineUsers = new Set(activeSockets.values());
 
-    // 현재 접속 중인 다른 유저가 있다면 즉시 읽음 처리
-    activeUsers.forEach(u => {
-      if (u !== sender && !readBy.includes(u)) {
-        readBy.push(u);
+    // 메시지를 보낸 순간 실시간으로 접속해 있는 사람들을 readBy에 추가
+    const readBy = [sender];
+    onlineUsers.forEach(user => {
+      if (user !== sender && !readBy.includes(user)) {
+        readBy.push(user);
       }
     });
 
@@ -92,23 +91,18 @@ io.on('connection', (socket) => {
     io.emit('message', msgObj);
   });
 
-  // 개별 메시지 삭제
   socket.on('deleteSingleMessage', (msgId) => {
     messages = messages.filter(m => m.id !== msgId);
     io.emit('messageDeleted', msgId);
   });
 
-  // 모든 기록 삭제
   socket.on('clearAllMessages', () => {
     messages = [];
     io.emit('allMessagesCleared');
   });
 
-  // 접속 종료 처리
   socket.on('disconnect', () => {
-    if (socket.username) {
-      activeUsers.delete(socket.username);
-    }
+    activeSockets.delete(socket.id);
   });
 });
 
