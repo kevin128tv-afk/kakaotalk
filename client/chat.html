@@ -88,7 +88,7 @@
       border-top-left-radius: 2px;
     }
 
-    /* 노란색 숫자 1 및 시간 메타 정보 */
+    /* 노란색 안 읽음 숫자 1 */
     .meta-info {
       display: flex;
       flex-direction: column;
@@ -99,13 +99,14 @@
     .other-msg .meta-info { align-items: flex-start; }
 
     .unread-count {
-      color: #e6b800;
+      color: #ffe100;
       font-weight: bold;
       font-size: 11px;
       line-height: 1.2;
+      text-shadow: 0px 0px 1px rgba(0,0,0,0.2);
     }
 
-    /* 점점점 메뉴 */
+    /* 옵션 메뉴 */
     .more-options {
       position: relative;
       display: inline-block;
@@ -199,17 +200,17 @@
     const socket = io();
     socket.emit('join', username);
 
-    // 안 읽은 사람 수 계산 (채팅방 총 참여 인원 2명 기준)
-    function getUnreadCount(msg) {
+    // 총 2명 채팅방 기준 (읽은 사람 목록에 나 외의 상대방이 없으면 1 표시)
+    function getUnreadText(msg) {
       const readBy = msg.readBy || [];
-      const unread = 2 - readBy.length;
-      return unread > 0 ? unread : '';
+      // 전체 유저 2명 중 읽은 사람이 1명이면 "1", 2명이면 ""
+      return readBy.length < 2 ? '1' : '';
     }
 
     function renderMessage(data) {
       const chatBox = document.getElementById('chatBox');
       const isMine = data.sender === username;
-      const unreadNum = getUnreadCount(data);
+      const unreadText = getUnreadText(data);
 
       const row = document.createElement('div');
       row.className = `message-row ${isMine ? 'my-msg' : 'other-msg'}`;
@@ -220,7 +221,7 @@
         <div class="bubble-wrapper">
           <div class="bubble">${data.text}</div>
           <div class="meta-info">
-            <span class="unread-count" id="unread-${data.id}">${unreadNum}</span>
+            <span class="unread-count" id="unread-${data.id}">${unreadText}</span>
             <span class="time">${data.timestamp || ''}</span>
           </div>
           <div class="more-options">
@@ -236,39 +237,33 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // 서버 이력 초기 수신
     socket.on('initMessages', (msgList) => {
       document.getElementById('chatBox').innerHTML = '';
       msgList.forEach(m => renderMessage(m));
     });
 
-    // 새 메시지 수신
     socket.on('message', (data) => {
       renderMessage(data);
     });
 
-    // 상대방 접속 등으로 읽음 상태 업데이트 시
     socket.on('messagesReadStatusUpdated', (msgList) => {
       msgList.forEach(m => {
         const el = document.getElementById(`unread-${m.id}`);
         if (el) {
-          el.innerText = getUnreadCount(m);
+          el.innerText = getUnreadText(m);
         }
       });
     });
 
-    // 개별 삭제 수신
     socket.on('messageDeleted', (msgId) => {
       const el = document.getElementById(`msg-${msgId}`);
       if (el) el.remove();
     });
 
-    // 전체 삭제 수신
     socket.on('allMessagesCleared', () => {
       document.getElementById('chatBox').innerHTML = '';
     });
 
-    // 메시지 전송
     document.getElementById('messageForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const input = document.getElementById('msgInput');
@@ -280,7 +275,6 @@
       }
     });
 
-    // 점점점 메뉴 토글
     function toggleMenu(id, event) {
       event.stopPropagation();
       document.querySelectorAll('.dropdown-content').forEach(el => {
