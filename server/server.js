@@ -9,24 +9,12 @@ const server = http.createServer(app);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 상위 폴더의 client 폴더 경로 설정 (../client)
 const clientPath = path.join(__dirname, '..', 'client');
-
-// client 폴더를 정적 파일 폴더로 등록
 app.use(express.static(clientPath));
 
-// 기본 접속 및 login.html 요청 시 client/login.html 제공
-app.get('/', (req, res) => {
-  res.sendFile(path.join(clientPath, 'login.html'));
-});
-
-app.get('/login.html', (req, res) => {
-  res.sendFile(path.join(clientPath, 'login.html'));
-});
-
-app.get('/chat.html', (req, res) => {
-  res.sendFile(path.join(clientPath, 'chat.html'));
-});
+app.get('/', (req, res) => res.sendFile(path.join(clientPath, 'login.html')));
+app.get('/login.html', (req, res) => res.sendFile(path.join(clientPath, 'login.html')));
+app.get('/chat.html', (req, res) => res.sendFile(path.join(clientPath, 'chat.html')));
 
 // 로그인 API
 app.post('/api/auth/login', (req, res) => {
@@ -47,21 +35,44 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
-// Socket.io 실시간 통신
+// 서버 메모리에 메시지 저장
+let messages = [];
+
+// Socket.io 통신
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
 io.on('connection', (socket) => {
+  // 입장 시 기존 메시지 이력 보냄
+  socket.emit('initMessages', messages);
+
   socket.on('join', (username) => {
     socket.username = username;
   });
 
+  // 메시지 전송
   socket.on('sendMessage', (messageData) => {
-    io.emit('message', {
-      ...messageData,
-      timestamp: new Date().toLocaleTimeString()
-    });
+    const msgObj = {
+      id: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      sender: messageData.sender,
+      text: messageData.text,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    messages.push(msgObj);
+    io.emit('message', msgObj);
+  });
+
+  // 개별 메시지 삭제
+  socket.on('deleteSingleMessage', (msgId) => {
+    messages = messages.filter(m => m.id !== msgId);
+    io.emit('messageDeleted', msgId);
+  });
+
+  // 모든 기록 삭제
+  socket.on('clearAllMessages', () => {
+    messages = [];
+    io.emit('allMessagesCleared');
   });
 });
 
