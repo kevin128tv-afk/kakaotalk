@@ -88,7 +88,6 @@
       border-top-left-radius: 2px;
     }
 
-    /* 노란색 안 읽음 숫자 1 */
     .meta-info {
       display: flex;
       flex-direction: column;
@@ -106,7 +105,6 @@
       text-shadow: 0px 0px 1px rgba(0,0,0,0.2);
     }
 
-    /* 옵션 메뉴 */
     .more-options {
       position: relative;
       display: inline-block;
@@ -200,10 +198,8 @@
     const socket = io();
     socket.emit('join', username);
 
-    // 총 2명 채팅방 기준 (읽은 사람 목록에 나 외의 상대방이 없으면 1 표시)
     function getUnreadText(msg) {
       const readBy = msg.readBy || [];
-      // 전체 유저 2명 중 읽은 사람이 1명이면 "1", 2명이면 ""
       return readBy.length < 2 ? '1' : '';
     }
 
@@ -237,22 +233,29 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
+    // 접속 시 이전 메시지 로드 (저장 기능)
     socket.on('initMessages', (msgList) => {
       document.getElementById('chatBox').innerHTML = '';
-      msgList.forEach(m => renderMessage(m));
+      if (Array.isArray(msgList)) {
+        msgList.forEach(m => renderMessage(m));
+      }
     });
 
+    // 실시간 메시지 수신 (상대방 대화 기능)
     socket.on('message', (data) => {
       renderMessage(data);
     });
 
+    // 읽음 수 실시간 갱신
     socket.on('messagesReadStatusUpdated', (msgList) => {
-      msgList.forEach(m => {
-        const el = document.getElementById(`unread-${m.id}`);
-        if (el) {
-          el.innerText = getUnreadText(m);
-        }
-      });
+      if (Array.isArray(msgList)) {
+        msgList.forEach(m => {
+          const el = document.getElementById(`unread-${m.id}`);
+          if (el) {
+            el.innerText = getUnreadText(m);
+          }
+        });
+      }
     });
 
     socket.on('messageDeleted', (msgId) => {
