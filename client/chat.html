@@ -15,20 +15,27 @@
     }
     .header {
       background-color: #a0b9ce;
-      padding: 15px 20px;
+      padding: 12px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid #92a8ba;
     }
-    .header h2 { font-size: 18px; color: #333; }
-    .header button {
-      padding: 6px 12px;
-      background: #eee;
-      border: none;
+    .header h2 { font-size: 16px; color: #333; }
+    .header-btns { display: flex; gap: 6px; }
+    .header-btns button {
+      padding: 6px 10px;
+      background: #ffffff;
+      border: 1px solid #ccc;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .header-btns .clear-btn {
+      background-color: #ff4d4f;
+      color: #fff;
+      border: none;
     }
     .chat-box {
       flex: 1;
@@ -41,7 +48,8 @@
     .message-row {
       display: flex;
       flex-direction: column;
-      max-width: 70%;
+      max-width: 75%;
+      position: relative;
     }
     .message-row.my-msg {
       align-self: flex-end;
@@ -56,10 +64,16 @@
       color: #555;
       margin-bottom: 4px;
     }
+    .bubble-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .my-msg .bubble-wrapper { flex-direction: row-reverse; }
     .bubble {
-      padding: 10px 14px;
+      padding: 9px 13px;
       border-radius: 12px;
-      font-size: 15px;
+      font-size: 14px;
       line-height: 1.4;
       word-break: break-word;
     }
@@ -75,25 +89,64 @@
     }
     .time {
       font-size: 10px;
-      color: #777;
-      margin-top: 3px;
+      color: #666;
     }
+
+    /* 개별 메시지 옵션 (점점점 메뉴) */
+    .more-options {
+      position: relative;
+      display: inline-block;
+    }
+    .menu-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      color: #666;
+      padding: 2px 4px;
+      line-height: 1;
+    }
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      bottom: 100%;
+      right: 0;
+      background-color: #ffffff;
+      min-width: 80px;
+      box-shadow: 0px 2px 8px rgba(0,0,0,0.15);
+      border-radius: 6px;
+      z-index: 10;
+      overflow: hidden;
+    }
+    .dropdown-content button {
+      width: 100%;
+      padding: 8px 10px;
+      border: none;
+      background: none;
+      text-align: left;
+      font-size: 12px;
+      color: #ff4d4f;
+      cursor: pointer;
+    }
+    .dropdown-content button:hover { background-color: #f5f5f5; }
+    .show { display: block; }
+
     .input-area {
       background-color: #ffffff;
-      padding: 10px 15px;
+      padding: 10px 12px;
       display: flex;
-      gap: 10px;
+      gap: 8px;
     }
     .input-area input {
       flex: 1;
-      padding: 12px;
+      padding: 10px 14px;
       border: 1px solid #ddd;
       border-radius: 20px;
       outline: none;
-      font-size: 15px;
+      font-size: 14px;
     }
     .input-area button {
-      padding: 10px 18px;
+      padding: 10px 16px;
       background-color: #fee500;
       border: none;
       border-radius: 20px;
@@ -105,7 +158,10 @@
 <body>
   <div class="header">
     <h2 id="roomTitle">채팅방</h2>
-    <button onclick="logout()">로그아웃</button>
+    <div class="header-btns">
+      <button class="clear-btn" onclick="clearAll()">기록 삭제</button>
+      <button onclick="logout()">로그아웃</button>
+    </div>
   </div>
 
   <div class="chat-box" id="chatBox"></div>
@@ -117,7 +173,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    // 1. 로그인 유저 정보 확인
     const userJson = localStorage.getItem('user');
     if (!userJson) {
       alert('로그인이 필요합니다!');
@@ -126,48 +181,99 @@
 
     const user = JSON.parse(userJson || '{}');
     const username = user.name || '알 수 없는 사용자';
-
     document.getElementById('roomTitle').innerText = `${username} 님의 채팅방`;
 
-    // 2. Socket.io 연결
     const socket = io();
-
     socket.emit('join', username);
 
-    // 3. 메시지 수신 처리
-    socket.on('message', (data) => {
+    // 메시지 요소 생성
+    function renderMessage(data) {
       const chatBox = document.getElementById('chatBox');
       const isMine = data.sender === username;
 
       const row = document.createElement('div');
       row.className = `message-row ${isMine ? 'my-msg' : 'other-msg'}`;
+      row.id = `msg-${data.id}`;
 
       row.innerHTML = `
         ${!isMine ? `<div class="sender-name">${data.sender}</div>` : ''}
-        <div class="bubble">${data.text}</div>
-        <div class="time">${data.timestamp || ''}</div>
+        <div class="bubble-wrapper">
+          <div class="bubble">${data.text}</div>
+          <div class="time">${data.timestamp || ''}</div>
+          <div class="more-options">
+            <button class="menu-btn" onclick="toggleMenu('${data.id}', event)">⋮</button>
+            <div id="dropdown-${data.id}" class="dropdown-content">
+              <button onclick="deleteSingle('${data.id}')">삭제</button>
+            </div>
+          </div>
+        </div>
       `;
 
       chatBox.appendChild(row);
       chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // 서버에 보관된 이력 초기화 수신
+    socket.on('initMessages', (msgList) => {
+      document.getElementById('chatBox').innerHTML = '';
+      msgList.forEach(m => renderMessage(m));
     });
 
-    // 4. 메시지 전송 처리
+    // 새 메시지 수신
+    socket.on('message', (data) => {
+      renderMessage(data);
+    });
+
+    // 개별 삭제 수신
+    socket.on('messageDeleted', (msgId) => {
+      const el = document.getElementById(`msg-${msgId}`);
+      if (el) el.remove();
+    });
+
+    // 전체 삭제 수신
+    socket.on('allMessagesCleared', () => {
+      document.getElementById('chatBox').innerHTML = '';
+    });
+
+    // 메시지 전송
     document.getElementById('messageForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const input = document.getElementById('msgInput');
       const text = input.value.trim();
 
       if (text) {
-        socket.emit('sendMessage', {
-          sender: username,
-          text: text
-        });
+        socket.emit('sendMessage', { sender: username, text: text });
         input.value = '';
       }
     });
 
-    // 5. 로그아웃
+    // 드롭다운 메뉴 토글
+    function toggleMenu(id, event) {
+      event.stopPropagation();
+      document.querySelectorAll('.dropdown-content').forEach(el => {
+        if (el.id !== `dropdown-${id}`) el.classList.remove('show');
+      });
+      document.getElementById(`dropdown-${id}`).classList.toggle('show');
+    }
+
+    // 외부 클릭 시 드롭다운 닫기
+    window.addEventListener('click', () => {
+      document.querySelectorAll('.dropdown-content').forEach(el => el.classList.remove('show'));
+    });
+
+    // 개별 삭제 실행
+    function deleteSingle(msgId) {
+      socket.emit('deleteSingleMessage', msgId);
+    }
+
+    // 모든 기록 삭제
+    function clearAll() {
+      if (confirm('모든 메시지 기록을 삭제하시겠습니까?')) {
+        socket.emit('clearAllMessages');
+      }
+    }
+
+    // 로그아웃
     function logout() {
       localStorage.removeItem('user');
       window.location.href = '/login.html';
