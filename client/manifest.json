@@ -1,0 +1,20 @@
+{
+  "name": "카카오톡 채팅방",
+  "short_name": "채팅앱",
+  "start_url": "/login.html",
+  "display": "standalone",
+  "background_color": "#abc1d1",
+  "theme_color": "#a0b9ce",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
